@@ -14,13 +14,13 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 /**
   * Created by xhuang on 21/04/2017.
   */
-class OffsetLookupActor(private val bootstrapServers: String) extends KafkaClientActor with ActorLogging {
+class OffsetLookupActor extends KafkaClientActor with ActorLogging {
 
   var consumer: KafkaConsumer[Array[Byte], Array[Byte]] = null
 
   override def preStart(): Unit = {
     super.preStart()
-    consumer = ConsumerCreator.newStandAloneConsumer(bootstrapServers)
+    consumer = ConsumerCreator.newStandAloneConsumer()
   }
 
 

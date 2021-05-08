@@ -4,18 +4,21 @@ import kafka.cmd.common.TopicPartition
 import kafka.cmd.common.utils.ConsumerOps._
 import kafka.cmd.common.utils.ConsumerCreator
 import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
+import org.scalatest.BeforeAndAfter
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.must.Matchers
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 /**
   * Created by xhuang on 25/04/2017.
   */
-class ConsumerOpsTest extends FlatSpec with Matchers with BeforeAndAfter {
+class ConsumerOpsTest extends AnyFlatSpecLike with Matchers with BeforeAndAfter {
 
 
   var consumer: KafkaConsumer[Array[Byte], Array[Byte]] = null
 
   before {
-    consumer = ConsumerCreator.newStandAloneConsumer("slave1.test:9092")
+    consumer = ConsumerCreator.newStandAloneConsumer()
   }
 
   after {

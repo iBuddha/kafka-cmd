@@ -5,12 +5,15 @@ import com.twitter.bijection.{Base64String, Bijection, Injection}
 import kafka.cmd.common.utils.TextEncoder
 import org.apache.avro.Schema
 import org.apache.avro.generic.{GenericData, GenericRecord}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.matchers.must.Matchers
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
+import org.scalatest.{BeforeAndAfter}
 
 /**
   * Created by xhuang on 26/04/2017.
   */
-class TextEncoderTest extends FlatSpec with Matchers {
+class TextEncoderTest extends AnyFlatSpecLike with Matchers with BeforeAndAfter {
   "TextEncoder" should "encode byte[] to base64 string correctly" in {
     val bytes = Injection.long2BigEndian(11L)
     val base64String = Bijection.bytes2Base64(bytes).str

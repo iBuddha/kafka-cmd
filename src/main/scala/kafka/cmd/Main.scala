@@ -28,7 +28,7 @@ object Main extends App {
   val kafkaBrokers = "slave1.test"
 
   try {
-    val offsetLookupActor = actorSystem.actorOf(Props(new OffsetLookupActor(kafkaBrokers)))
+    val offsetLookupActor = actorSystem.actorOf(Props(new OffsetLookupActor()))
 
     val offsetFuture = (offsetLookupActor ? FindTopicOffsetDiffRequest(newId, "clicks", 24.hoursAgo, 12.hoursAgo))
       .mapTo[FindTopicOffsetDiffResponse]

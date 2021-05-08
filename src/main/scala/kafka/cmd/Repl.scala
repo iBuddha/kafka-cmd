@@ -1,17 +1,15 @@
 package kafka.cmd
 
-import akka.actor.{ActorSystem, PoisonPill, Props}
+import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import kafka.cmd.actor._
+import kafka.cmd.actor.{MessageActor, MetadataActor, OffsetLookupActor, SearchMessageActor}
+import kafka.cmd.common.KafkaConf
+import kafka.cmd.common.exception.CompileException
 import kafka.cmd.common.request._
 import kafka.cmd.common.utils.Pretty._
 import kafka.cmd.repl._
-import kafka.cmd.actor.{ConsumerGroupActor, ConsumerGroupWatcher, MessageActor, MetadataActor, OffsetLookupActor, SearchMessageActor}
-import kafka.cmd.common.exception.CompileException
-import kafka.cmd.common.request.{DescribeConsumerGroupRequest, DescribeTopicRequest, KafkaActorRequest, KafkaActorResponse, ListTopicResponse, ListTopicsRequest, MessageRequest, OffsetRequest, RecentlyMessageRequest, RecentlyMessageResponse, StopWatchingConsumerGroupRequest, WatchConsumerGroupRequest}
-import kafka.cmd.repl.{ComposedMessageRequestCompiler, DescribeCompiler, MessageLookupCompiler, OffsetLookupCompiler, WatchGroupCompiler}
 import org.jline.reader._
 import org.jline.reader.impl.completer.StringsCompleter
 import org.jline.terminal.TerminalBuilder
@@ -25,26 +23,16 @@ import scala.util.{Failure, Success, Try}
   */
 object Repl extends App {
   val config = ConfigFactory.load()
-  private val bootstrapServers = getBootstrapServers
-  println(s"set bootstrapServers  to $bootstrapServers,\n"
-    + "bootstrapServers can be set by modifying application.conf or environment" +
-    s" variable KAFKA_BOOTSTRAP_SERVERS")
-  private val zkConnect = getZkConnect
-  println(s"set bootstrapServers  to $zkConnect,\n"
-    + "bootstrapServers can be set by modifying application.conf or environment" +
-    s" variable KAFKA_ZK_CONNECT")
+  KafkaConf.load(config)
   val requestTimeout = 5000L
   val actorSystem = ActorSystem("kafka-tools")
   addShutdownHook()
-  val offsetLookupActor = actorSystem.actorOf(Props(new OffsetLookupActor(bootstrapServers)), "offset-actor")
-  val messageLookupActor = actorSystem.actorOf(Props(new MessageActor(bootstrapServers, requestTimeout)), "message-actor")
-  val metadataActor = actorSystem.actorOf(Props(new MetadataActor(bootstrapServers)), "metadata-actor")
+  val offsetLookupActor = actorSystem.actorOf(Props(new OffsetLookupActor), "offset-actor")
+  val messageLookupActor = actorSystem.actorOf(Props(new MessageActor(requestTimeout)), "message-actor")
+  val metadataActor = actorSystem.actorOf(Props(new MetadataActor), "metadata-actor")
   val latestMessageActor = actorSystem.actorOf(Props(new SearchMessageActor(messageLookupActor.path, offsetLookupActor.path, metadataActor.path)), "currentMessageActor")
   implicit val FutureTimeout = Timeout(20.seconds)
   implicit val context = actorSystem.dispatcher
-
-  // consumer group -> ConsumerGroupWatcher
-  var consumerWatches: List[(String, ConsumerGroupWatcher)] = List.empty
 
   printHelp()
 
@@ -77,7 +65,6 @@ object Repl extends App {
         System.exit(0)
       }
       case e: EndOfFileException => {
-        stopLastWatch()
       }
       case e: Exception => e.printStackTrace()
         printHelp()
@@ -94,9 +81,6 @@ object Repl extends App {
         case request: OffsetRequest => Some((offsetLookupActor ? request).mapTo[KafkaActorResponse])
         case request: DescribeTopicRequest => Some((metadataActor ? request).mapTo[KafkaActorResponse])
         case request: ListTopicsRequest => Some((metadataActor ? request).mapTo[ListTopicResponse])
-        case WatchConsumerGroupRequest(id, group) => watch(group); None
-        case StopWatchingConsumerGroupRequest(id, group) => stopWatch(group); None
-        case DescribeConsumerGroupRequest(id, group) => describeGroup(id, group);  None;
       }
     }
     future match {
@@ -105,32 +89,6 @@ object Repl extends App {
         f.onSuccess { case response: KafkaActorResponse => println(response.pretty) }
         f.onFailure { case e: Throwable => println(e.toString) }
         Await.ready(f, 10.seconds)
-    }
-  }
-
-
-  private def describeGroup(id: Long, group: String) = {
-    val consumerGroupActor = actorSystem.actorOf(Props(new ConsumerGroupActor(bootstrapServers, group)), "consumer-group-actor-" + group)
-    consumerGroupActor ! DescribeConsumerGroupRequest(id, group)
-    consumerGroupActor ! PoisonPill
-  }
-
-  private def watch(group: String) = {
-    val watcher = new ConsumerGroupWatcher(actorSystem, group, zkConnect, bootstrapServers)
-    consumerWatches = consumerWatches :+ (group, watcher)
-    watcher.start()
-  }
-
-  private def stopWatch(group: String) = {
-    val (groupWatchers, remainingWatches) = consumerWatches.partition(_._1 == group)
-    consumerWatches = remainingWatches
-    groupWatchers.foreach(_._2.stop())
-  }
-
-  private def stopLastWatch() =  {
-    if(!consumerWatches.isEmpty) {
-      consumerWatches.last._2.stop()
-      consumerWatches = consumerWatches.dropRight(1)
     }
   }
 
@@ -192,7 +150,6 @@ object Repl extends App {
       .appName("kafka-tools")
       .completer(completer)
       .build()
-    //    reader.setHistory(new MemoryHistory)
     reader
   }
 
@@ -204,24 +161,14 @@ object Repl extends App {
   private def addShutdownHook(): Unit = {
     sys.addShutdownHook {
       actorSystem.terminate()
-      consumerWatches.foreach {
-        case (_, watcher) => watcher.stop()
-      }
     }
   }
 
   def getBootstrapServers = {
     val envProperty = System.getenv("KAFKA_BOOTSTRAP_SERVERS")
     if(envProperty == null)
-      config.getString("kafka.bootstrapServers")
+      config.getString("kafka.properties.bootstrap.servers")
     else
       envProperty
-  }
-
-  def getZkConnect = {
-    val envProperty = System.getenv("KAFKA_ZK_CONNECT")
-    if(envProperty == null)
-      config.getString("kafka.zkConnect")
-    else envProperty
   }
 }

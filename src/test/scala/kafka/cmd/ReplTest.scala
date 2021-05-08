@@ -28,9 +28,9 @@ object ReplTest extends App {
   val requestTimeout = 5000L
   Console.println("select offset from Kafka topic or partition")
   val actorSystem = ActorSystem("kafka-tools")
-  val offsetLookupActor = actorSystem.actorOf(Props(new OffsetLookupActor(bootstrapServers)), "offset-actor")
-  val messageLookupActor = actorSystem.actorOf(Props(new MessageActor(bootstrapServers, requestTimeout)), "message-actor")
-  val metadataActor = actorSystem.actorOf(Props(new MetadataActor(bootstrapServers)), "metadata-actor")
+  val offsetLookupActor = actorSystem.actorOf(Props(new OffsetLookupActor()), "offset-actor")
+  val messageLookupActor = actorSystem.actorOf(Props(new MessageActor(requestTimeout)), "message-actor")
+  val metadataActor = actorSystem.actorOf(Props(new MetadataActor()), "metadata-actor")
   val currentMessageActor = actorSystem.actorOf(Props(new SearchMessageActor(messageLookupActor.path, offsetLookupActor.path, metadataActor.path)), "currentMessageActor")
 
   implicit val FutureTimeout = Timeout(10.seconds)

@@ -16,13 +16,13 @@ import scala.util.Try
 /**
   * Created by xhuang on 21/04/2017.
   */
-class MetadataActor(private val bootstrapServers: String) extends KafkaClientActor with ActorLogging {
+class MetadataActor extends KafkaClientActor with ActorLogging {
 
   var consumer: KafkaConsumer[Array[Byte], Array[Byte]] = null
 
   override def preStart(): Unit = {
     super.preStart()
-    consumer = ConsumerCreator.newStandAloneConsumer(bootstrapServers)
+    consumer = ConsumerCreator.newStandAloneConsumer()
     log.info("MetadataActor started")
   }
 
@@ -50,7 +50,14 @@ class MetadataActor(private val bootstrapServers: String) extends KafkaClientAct
     case r@TopicExistRequest(id, topic) => {
       sender ! TopicExistResponse(r, consumer.listTopics().containsKey(topic))
     }
-    case r: ListTopicsRequest => sender ! ListTopicResponse(r, Try{consumer.listTopics().map(_._1).toList})
+    case r: ListTopicsRequest => sender ! ListTopicResponse(r, Try{
+      val topics = consumer.listTopics()
+        .map(_._1)
+        .toList
+        topics
+    }
+    )
   }
 }
+
 

@@ -13,13 +13,13 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by xhuang on 25/04/2017.
   */
-class MessageActor(bootstrapServers: String, timeout: Long) extends Actor with ActorLogging {
+class MessageActor(timeout: Long) extends Actor with ActorLogging {
 
-  private var consumer = ConsumerCreator.newStandAloneConsumer(bootstrapServers)
+  private var consumer = ConsumerCreator.newStandAloneConsumer()
 
   override def preStart(): Unit = {
     super.preStart()
-    consumer = ConsumerCreator.newStandAloneConsumer(bootstrapServers)
+    consumer = ConsumerCreator.newStandAloneConsumer()
   }
 
   override def postStop(): Unit = {
